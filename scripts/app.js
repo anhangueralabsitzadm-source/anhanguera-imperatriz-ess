@@ -18,7 +18,7 @@ const SUPABASE_URL = 'https://vjudjvidoasdpilfivlx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqdWRqdmlkb2FzZHBpbGZpdmx4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3MzcxNTAsImV4cCI6MjA3OTMxMzE1MH0.c4FoMY_7HNUazOklcGuvuubE6Fc3CGb2q9kNzdK36X8';
 
 // Configuração do Cache
-const CACHE_TTL_MINUTOS = 3; // Tempo de vida do cache em minutos
+const CACHE_TTL_MINUTOS = 2; // Tempo de vida do cache em minutos
 
 let dados = [];
 let dadosLaboratorio = [];
