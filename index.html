@@ -45,17 +45,27 @@
   <!-- Seção de Salas -->
 
   <div class="container">
-    <div class="section" id="periodo-section">
-      <h2>Selecione um turno:</h2>
+    <!-- NOVA TELA INICIAL -->
+    <div class="section" id="tipo-mapa-section">
+      <h2>O que você procura?</h2>
+      <div class="displayButtons">
+        <button class="btn" onclick="selecionarTipoMapa('sala')">🏫 Mapa de Salas</button>
+        <button class="btn" onclick="selecionarTipoMapa('laboratorio')">🔬 Mapa de Laboratórios</button>
+      </div>
+    </div>
+
+    <!-- TELA DE TURNO (para salas) -->
+    <div class="section hidden" id="periodo-section">
+      <div class="headeDisplay">
+        <h2>Selecione um turno:</h2>
+        <button class="buttonReturn" onclick="voltar('tipo-mapa')">Voltar</button>
+      </div>
       <div class="displayButtons">
         <button class="btn" onclick="selecionarPeriodo('Matutino')">Matutino</button>
         <button class="btn" onclick="selecionarPeriodo('Vespertino')">Vespertino</button>
         <button class="btn" onclick="selecionarPeriodo('Noturno')">Noturno</button>
         <button class="btn" onclick="selecionarPeriodo('Matutino - EAD')">Matutino - EAD</button>
         <button class="btn" onclick="selecionarPeriodo('Noturno - EAD')">Noturno - EAD</button>
-        <br>
-        <h2>Mapa de Laboratórios:</h2>
-        <button class="btn" onclick="selecionarPeriodo('Laboratório')">Laboratório</button>
       </div>
     </div>
 
@@ -101,7 +111,7 @@
     <div class="section hidden" id="dia-laboratorio-section">
       <div class="headeDisplay">
         <h2>Selecione um dia da semana:</h2>
-        <button class="buttonReturn" onclick="voltar('periodo')">Voltar</button>
+        <button class="buttonReturn" onclick="voltar('tipo-mapa')">Voltar</button>
       </div>
       <div class="displayButtons">
         <button class="btn" onclick="selecionarDiaLaboratorio('Segunda')">Segunda-Feira</button>
@@ -146,356 +156,7 @@
 
   <!-- Fim da Seção de Laboratórios-->
 
-  <script>
-
-let dados = [];
-let dadosLaboratorio = [];
-
-async function fetchData() {
-    try {
-        // Mostra o loading, oculta o conteúdo
-        document.getElementById("loading").classList.remove("hidden");
-        document.body.classList.remove("loaded");
-
-        const response = await fetch('https://script.google.com/macros/s/AKfycbx1RQRmwIPCCa0hAqn86ssRc-HfCfNuh2tbanpzFCmsmBXIOzSe7gEzS24eZeqRYN_z/exec');
-        
-        if (!response.ok) {
-            throw new Error(`Erro na requisição: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (!data.data) {
-            throw new Error("❌ Dados não encontrados na resposta.");
-        }
-
-        dados = data.data["Dados"];
-        dadosLaboratorio = data.data["Dados Laboratório"];
-
-        // Oculta o loading e mostra o conteúdo
-        document.getElementById("loading").classList.add("hidden");
-        document.body.classList.add("loaded"); // Ativa o CSS que revela o conteúdo
-
-    } catch (error) {
-        console.error("❌ Erro ao buscar dados:", error);
-        document.getElementById("loading").innerHTML = "<p style='color: white;'>Erro ao carregar os dados.</p>";
-    }
-}
-
-// Carrega os dados ao abrir a página
-window.onload = fetchData;
-
-document.querySelector(".sectionCenter").style.display = "flex";
-
-// =================== Funções ===================
-
-let periodoSelecionado = '';
-let diaSelecionado = '';
-let diaLaboratorioSelecionado = '';
-let turnoLaboratorioSelecionado = '';
-
-function selecionarPeriodo(periodo) {
-    periodoSelecionado = periodo;
-    document.getElementById('periodo-section').classList.add('hidden');
-
-    if (periodo === "Laboratório") {
-        document.getElementById('dia-laboratorio-section').classList.remove('hidden');
-    } else {
-        document.getElementById('dia-section').classList.remove('hidden');
-    }
-}
-
-function selecionarDia(dia) {
-    diaSelecionado = dia;
-    document.getElementById('dia-section').classList.add('hidden');
-    document.getElementById('opcao-section').classList.remove('hidden');
-    mostrarCursos();
-}
-
-function selecionarDiaLaboratorio(dia_lab) {
-    diaLaboratorioSelecionado = dia_lab;
-    document.getElementById('dia-laboratorio-section').classList.add('hidden');
-    document.getElementById('turno-section').classList.remove('hidden');
-}
-
-function selecionarTurno(turno_lab) {
-    turnoLaboratorioSelecionado = turno_lab;
-    document.getElementById('turno-section').classList.add('hidden');
-    document.getElementById('opcao-section-laboratorio').classList.remove('hidden');
-    mostrarCursosLaboratorio();
-}
-
-// =================== Exibição Cursos ===================
-
-function mostrarCursos() {
-    const lista = document.getElementById('lista-cursos');
-    lista.innerHTML = '';
-
-    const cursosFiltrados = dados.filter(d => d.turno === periodoSelecionado && d.dia === diaSelecionado);
-
-    if (cursosFiltrados.length === 0) {
-        lista.innerHTML = "<p style='color: white'>Nenhum curso encontrado.</p>";
-        return;
-    }
-
-    const cursos = [...new Set(cursosFiltrados.map(item => item.curso))];
-
-    cursos.forEach(curso => {
-        const li = document.createElement('li');
-        li.textContent = curso;
-        li.onclick = () => mostrarProfessores(curso);
-        lista.appendChild(li);
-    });
-}
-
-function mostrarProfessores(curso) {
-    document.getElementById('opcao-section').classList.add('hidden');
-    document.getElementById('lista-section').classList.remove('hidden');
-
-    const professoresFiltrados = dados.filter(item => 
-        item.curso === curso &&
-        item.turno === periodoSelecionado &&
-        item.dia === diaSelecionado
-    );
-
-    const lista = document.getElementById('lista-professores');
-    lista.innerHTML = '';
-
-    if (professoresFiltrados.length === 0) {
-        lista.innerHTML = "<p style='color: white'>Nenhum professor encontrado.</p>";
-        return;
-    }
-
-    professoresFiltrados.forEach(item => {
-        const li = document.createElement('li');
-
-        if (typeof item.sala === 'string' && item.sala.trim().toLowerCase() === 'aula cancelada') {
-            li.classList.add('cancelado');
-        }
-
-        const professorDiv = document.createElement('div');
-        professorDiv.textContent = item.professor;
-        professorDiv.style.fontWeight = 'bold';
-
-        const detalhesDiv = document.createElement('div');
-        detalhesDiv.className = "descricaoDiv";
-        detalhesDiv.innerHTML = `Disciplina: ${item.disciplina}<br>
-                                Período: ${item.periodo}<br>
-                                Bloco: ${item.bloco}<br>
-                                Sala: ${item.sala}<br>
-                                Hora: ${item.hora}`;
-        
-        li.appendChild(professorDiv);
-        li.appendChild(detalhesDiv);
-
-        lista.appendChild(li);
-    });
-}
-
-// =================== Exibição Laboratórios ===================
-
-function mostrarCursosLaboratorio() {
-    const lista = document.getElementById('lista-cursos-laboratorio');
-    lista.innerHTML = '';
-
-    const cursosFiltrados = dadosLaboratorio.filter(lab => 
-        lab.dia === diaLaboratorioSelecionado && 
-        lab.turno === turnoLaboratorioSelecionado
-    );
-
-    if (cursosFiltrados.length === 0) {
-        lista.innerHTML = "<p style='color: white'>Nenhum curso encontrado.</p>";
-        return;
-    }
-
-    const cursos = [...new Set(cursosFiltrados.map(item => item.curso))];
-
-    cursos.forEach(curso => {
-        const li = document.createElement('li');
-        li.textContent = curso;
-        li.onclick = () => mostrarLaboratorioPorCurso(curso);
-        lista.appendChild(li);
-    });
-}
-
-function mostrarLaboratorioPorCurso(curso) {
-    document.getElementById('opcao-section-laboratorio').classList.add('hidden');
-    document.getElementById('lista-section-laboratorio').classList.remove('hidden');
-
-    const lista = document.getElementById('lista-detalhes-laboratorio');
-    lista.innerHTML = '';
-
-    const laboratoriosFiltrados = dadosLaboratorio.filter(lab => 
-        lab.curso === curso &&
-        lab.dia === diaLaboratorioSelecionado &&
-        lab.turno === turnoLaboratorioSelecionado
-    );
-
-    if (laboratoriosFiltrados.length === 0) {
-        lista.innerHTML = "<p style='color: white'>Nenhum laboratório encontrado.</p>";
-        return;
-    }
-
-    laboratoriosFiltrados.forEach(item => {
-        const li = document.createElement('li');
-
-        if (item.laboratorio.trim().toLowerCase() === 'aula cancelada') {
-            li.classList.add('cancelado');
-        }
-
-        const professorDiv = document.createElement('div');
-        professorDiv.textContent = item.professor;
-        professorDiv.style.fontWeight = 'bold';
-
-        const dataFormatada = new Date(item.data).toLocaleDateString("pt-BR");
-
-        const detalhesDiv = document.createElement('div');
-        detalhesDiv.className = "descricaoDiv";
-        detalhesDiv.innerHTML = `Disciplina: ${item.disciplina} <br>
-                                Localização: ${item.laboratorio} <br>
-                                Bloco: ${item.bloco} <br>
-                                Período: ${item.periodo} <br>
-                                Data: ${dataFormatada} <br>
-                                Hora: ${item.hora}`;
-
-        li.appendChild(professorDiv);
-        li.appendChild(detalhesDiv);
-
-        lista.appendChild(li);
-    });
-}
-
-// =================== Voltar ===================
-
-function voltar(passo) {
-    switch (passo) {
-        case 'periodo':
-            document.getElementById('dia-section').classList.add('hidden');
-            document.getElementById('dia-laboratorio-section').classList.add('hidden');
-            document.getElementById('turno-section').classList.add('hidden');
-            document.getElementById('opcao-section').classList.add('hidden');
-            document.getElementById('opcao-section-laboratorio').classList.add('hidden');
-            document.getElementById('lista-section').classList.add('hidden');
-            document.getElementById('lista-section-laboratorio').classList.add('hidden');
-            document.getElementById('periodo-section').classList.remove('hidden');
-            break;
-
-        case 'dia':
-            document.getElementById('opcao-section').classList.add('hidden');
-            document.getElementById('lista-section').classList.add('hidden');
-            document.getElementById('dia-section').classList.remove('hidden');
-            break;
-
-        case 'opcao':
-            document.getElementById('lista-section').classList.add('hidden');
-            document.getElementById('opcao-section').classList.remove('hidden');
-            break;
-
-        case 'dia-laboratorio':
-            document.getElementById('turno-section').classList.add('hidden');
-            document.getElementById('opcao-section-laboratorio').classList.add('hidden');
-            document.getElementById('lista-section-laboratorio').classList.add('hidden');
-            document.getElementById('dia-laboratorio-section').classList.remove('hidden');
-            break;
-
-        case 'turno': 
-            document.getElementById('opcao-section-laboratorio').classList.add('hidden');
-            document.getElementById('lista-section-laboratorio').classList.add('hidden');
-            document.getElementById('turno-section').classList.remove('hidden');
-            break;
-
-        case 'opcao-laboratorio': 
-            document.getElementById('lista-section-laboratorio').classList.add('hidden');
-            document.getElementById('opcao-section-laboratorio').classList.remove('hidden');
-            break;
-    }
-}
-
-// =================== Filtros ===================
-
-function filtrarLista() {
-    const filtro = document.getElementById('filtro-input-professores').value.toLowerCase();
-    const lista = document.getElementById('lista-professores');
-    const itens = lista.getElementsByTagName('li');
-
-    for (let i = 0; i < itens.length; i++) {
-        const itemTexto = itens[i].textContent || itens[i].innerText;
-        itens[i].style.display = itemTexto.toLowerCase().includes(filtro) ? '' : 'none';
-    }
-}
-
-function filtrarCurso() {
-    const filtro = document.getElementById('filtro-input-curso').value.toLowerCase();
-    const lista = document.getElementById('lista-professores');
-    const itens = lista.getElementsByTagName('li');
-
-    for (let i = 0; i < itens.length; i++) {
-        const itemTexto = itens[i].textContent || itens[i].innerText;
-        itens[i].style.display = itemTexto.toLowerCase().includes(filtro) ? '' : 'none';
-    }
-}
-
-function filtrarDetalhesLaboratorio() {
-    const input = document.getElementById("filtro-detalhes-laboratorio").value.toLowerCase();
-    const lista = document.getElementById("lista-detalhes-laboratorio");
-    const itens = lista.getElementsByTagName("li");
-
-    for (let i = 0; i < itens.length; i++) {
-        const texto = itens[i].innerText.toLowerCase();
-        itens[i].style.display = texto.includes(input) ? "" : "none";
-    }
-}
-
-function filtrarListaLaboratorio() {
-    const filtro = document.getElementById('filtro-input-laboratorio').value.toLowerCase();
-    const lista = document.getElementById('lista-opcoes-laboratorio');
-    const itens = lista.getElementsByTagName('li');
-
-    for (let i = 0; i < itens.length; i++) {
-        const itemTexto = itens[i].textContent || itens[i].innerText;
-        itens[i].style.display = itemTexto.toLowerCase().includes(filtro) ? '' : 'none';
-    }
-}
-
-// =================== Tema Claro / Escuro ===================
-
-function toggleTheme() {
-    document.body.classList.toggle('light-mode');
-
-    const logoNavbar = document.getElementById('logo-navbar');
-    if (document.body.classList.contains('light-mode')) {
-        logoNavbar.src = 'images/logo-anhanguera-horizontal.png'; // 🟢 Logo para tema claro (fundo claro)
-    } else {
-        logoNavbar.src = 'images/logo-anhanguera-horizontal-branca.png'; // 🔴 Logo para tema escuro (fundo escuro)
-    }
-}
-
-// Garante que a logo esteja certa ao recarregar a página
-
-window.addEventListener('DOMContentLoaded', () => {
-    const logo = document.getElementById('logo-navbar');
-
-    if (logo) {
-        const atualizarLogo = () => {
-            if (document.body.classList.contains('light-mode')) {
-                logo.src = 'images/logo-anhanguera-horizontal.png';
-            } else {
-                logo.src = 'images/logo-anhanguera-horizontal-branca.png';
-            }
-        };
-
-        atualizarLogo();
-
-        const botaoTema = document.querySelector('.theme-toggle');
-        if (botaoTema) {
-            botaoTema.addEventListener('click', atualizarLogo);
-        }
-    } else {
-        console.warn('⚠️ Elemento com id="logo-principal" não encontrado.');
-    }
-});
-
-</script>
+  <script src="scripts/app.js"></script>
 
 </body>
 </html>
