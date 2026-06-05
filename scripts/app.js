@@ -593,7 +593,8 @@ function mostrarLaboratorioPorCurso(curso) {
         professorDiv.className = 'professor-nome';
         professorDiv.textContent = item.professor;
 
-        const dataFormatada = new Date(item.data).toLocaleDateString("pt-BR");
+        const [ano, mes, dia] = (item.data || '').split('-');
+        const dataFormatada = dia && mes && ano ? `${dia}/${mes}/${ano}` : item.data;
 
         const detalhesDiv = document.createElement('div');
         detalhesDiv.className = 'descricaoDiv';
