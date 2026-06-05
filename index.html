@@ -14,65 +14,80 @@
 </head>
 
 <body>
-<div class="navbar">
-    <div class="navbar-left">
-        <!-- Vazio -->
-    </div>
 
+<!-- NAVBAR -->
+<div class="navbar">
+    <div class="navbar-left"></div>
     <div class="navbar-center">
         <img id="logo-navbar" class="logotipo" src="images/logo-anhanguera-horizontal-branca.png" alt="Anhanguera">
     </div>
-
-    <div class="navbar-right">
-        <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+    <div class="navbar-right" style="display:flex;align-items:center;gap:8px;">
+        <button class="theme-toggle" id="btn-theme" onclick="toggleTheme()" aria-label="Alternar tema">🌙</button>
     </div>
 </div>
 
-  <section class="sectionCenter">
-    <h1>QUADRO DE HORÁRIOS</h1>
-    <h2>FACULDADE ANHANGUERA IMPERATRIZ - MA</h2>
-  </section>
+<!-- HERO HEADER -->
+<section class="sectionCenter">
+    <h1>Quadro de Horários</h1>
+    <h2>Faculdade Anhanguera Imperatriz — MA</h2>
+</section>
 
-  <!-- LOADING -->
+<!-- BREADCRUMB -->
+<nav id="breadcrumb" class="breadcrumb hidden" aria-label="Navegação">
+    <!-- Preenchido dinamicamente pelo JS -->
+</nav>
 
-    <div id="loading">
+<!-- LOADING -->
+<div id="loading">
     <div class="loading-content">
         <img src="images/45.svg" alt="Carregando..." />
-        <p>Carregando...</p>
+        <p>Carregando dados...</p>
     </div>
-    </div>
+</div>
 
-  <!-- Seção de Salas -->
+<!-- ===== CONTEÚDO PRINCIPAL ===== -->
+<div class="container">
 
-  <div class="container">
-    <!-- NOVA TELA INICIAL -->
+    <!-- TELA INICIAL -->
     <div class="section" id="tipo-mapa-section">
       <h2>O que você procura?</h2>
+      <p class="section-subtitle">Selecione para encontrar sua sala ou laboratório</p>
       <div class="displayButtons">
-        <button class="btn" onclick="selecionarTipoMapa('sala')">🏫 Mapa de Salas</button>
-        <button class="btn" onclick="selecionarTipoMapa('laboratorio')">🔬 Aulas de Laboratório</button>
+        <button class="btn btn-tipo" onclick="selecionarTipoMapa('sala')">
+            <span class="btn-icon">🏫</span> Mapa de Salas
+        </button>
+        <button class="btn btn-tipo" onclick="selecionarTipoMapa('laboratorio')">
+            <span class="btn-icon">🔬</span> Mapa de Laboratórios
+        </button>
       </div>
     </div>
 
-    <!-- TELA DE TURNO (para salas) -->
+    <!-- ===== FLUXO SALAS ===== -->
+
+    <!-- Selecionar Turno -->
     <div class="section hidden" id="periodo-section">
       <div class="headeDisplay">
-        <h2>Selecione um turno:</h2>
-        <button class="buttonReturn" onclick="voltar('tipo-mapa')">Voltar</button>
+        <h2>Selecione o turno</h2>
+        <button class="buttonReturn" onclick="voltar('tipo-mapa')">
+            <span class="return-icon">←</span> Voltar
+        </button>
       </div>
       <div class="displayButtons">
-        <button class="btn" onclick="selecionarPeriodo('Matutino')">Matutino</button>
-        <button class="btn" onclick="selecionarPeriodo('Vespertino')">Vespertino</button>
-        <button class="btn" onclick="selecionarPeriodo('Noturno')">Noturno</button>
-        <button class="btn" onclick="selecionarPeriodo('Matutino - EAD')">Matutino - EAD</button>
-        <button class="btn" onclick="selecionarPeriodo('Noturno - EAD')">Noturno - EAD</button>
+        <button class="btn" onclick="selecionarPeriodo('Matutino')">☀️ Matutino</button>
+        <button class="btn" onclick="selecionarPeriodo('Vespertino')">🌤️ Vespertino</button>
+        <button class="btn" onclick="selecionarPeriodo('Noturno')">🌙 Noturno</button>
+        <button class="btn" onclick="selecionarPeriodo('Matutino - EAD')">💻 Matutino EAD</button>
+        <button class="btn" onclick="selecionarPeriodo('Noturno - EAD')">💻 Noturno EAD</button>
       </div>
     </div>
 
+    <!-- Selecionar Dia -->
     <div class="section hidden" id="dia-section">
       <div class="headeDisplay">
-        <h2>Selecione um dia da semana:</h2>
-        <button class="buttonReturn" onclick="voltar('periodo')">Voltar</button>
+        <h2>Selecione o dia da semana</h2>
+        <button class="buttonReturn" onclick="voltar('periodo')">
+            <span class="return-icon">←</span> Voltar
+        </button>
       </div>
       <div class="displayButtons">
         <button class="btn" onclick="selecionarDia('Segunda')">Segunda-Feira</button>
@@ -84,34 +99,45 @@
       </div>
     </div>
 
+    <!-- Lista de Cursos (Salas) -->
     <div class="section hidden" id="opcao-section">
-    <div class="headeDisplay">
-        <h2>Localize sua sala, por curso:</h2>
-        <button class="buttonReturn" onclick="voltar('dia')">Voltar</button>
-    </div>
-    <input type="text" id="filtro-input-curso" placeholder="Filtre aqui por Professor(a)/Disciplina" oninput="filtrarLista()">
-    <div id="lista-cursos"></div>
+      <div class="headeDisplay">
+        <h2>Selecione o curso</h2>
+        <button class="buttonReturn" onclick="voltar('dia')">
+            <span class="return-icon">←</span> Voltar
+        </button>
+      </div>
+      <div class="search-wrapper">
+        <input type="text" id="filtro-input-curso" placeholder="Buscar curso..." oninput="filtrarCurso()">
+        <span class="search-icon">🔍</span>
+      </div>
+      <div id="lista-cursos"></div>
     </div>
 
-
+    <!-- Detalhes do Curso (Professores/Salas) -->
     <div class="section hidden" id="lista-section">
-    <div class="headeDisplay">
-        <h2 id="lista-titulo">Localize sua sala, por curso:</h2>
-        <button class="buttonReturn" onclick="voltar('opcao')">Voltar</button>
+      <div class="headeDisplay">
+        <h2 id="lista-titulo">Detalhes das aulas</h2>
+        <button class="buttonReturn" onclick="voltar('opcao')">
+            <span class="return-icon">←</span> Voltar
+        </button>
+      </div>
+      <div class="search-wrapper">
+        <input type="text" id="filtro-input-professores" placeholder="Buscar professor ou disciplina..." oninput="filtrarLista()">
+        <span class="search-icon">🔍</span>
+      </div>
+      <ul id="lista-professores"></ul>
     </div>
-    <input type="text" id="filtro-input-professores" placeholder="Filtre aqui por Professor(a)/Disciplina" oninput="filtrarLista()">
-    <ul id="lista-professores"></ul>
-    </div>
 
-  <!-- Fim da Seção de Salas -->
+    <!-- ===== FLUXO LABORATÓRIOS ===== -->
 
-  <!-- Seção Laboratório -->
-
-  <div class="container">
+    <!-- Selecionar Dia (Labs) -->
     <div class="section hidden" id="dia-laboratorio-section">
       <div class="headeDisplay">
-        <h2>Selecione um dia da semana:</h2>
-        <button class="buttonReturn" onclick="voltar('tipo-mapa')">Voltar</button>
+        <h2>Selecione o dia da semana</h2>
+        <button class="buttonReturn" onclick="voltar('tipo-mapa')">
+            <span class="return-icon">←</span> Voltar
+        </button>
       </div>
       <div class="displayButtons">
         <button class="btn" onclick="selecionarDiaLaboratorio('Segunda')">Segunda-Feira</button>
@@ -122,41 +148,112 @@
         <button class="btn" onclick="selecionarDiaLaboratorio('Sábado')">Sábado</button>
       </div>
     </div>
-  
+
+    <!-- Selecionar Turno (Labs) -->
     <div class="section hidden" id="turno-section">
       <div class="headeDisplay">
-        <h2>Selecione um turno:</h2>
-        <button class="buttonReturn" onclick="voltar('dia-laboratorio')">Voltar</button>
+        <h2>Selecione o turno</h2>
+        <button class="buttonReturn" onclick="voltar('dia-laboratorio')">
+            <span class="return-icon">←</span> Voltar
+        </button>
       </div>
       <div class="displayButtons">
-        <button class="btn" onclick="selecionarTurno('Matutino')">Matutino</button>
-        <button class="btn" onclick="selecionarTurno('Vespertino')">Vespertino</button>
-        <button class="btn" onclick="selecionarTurno('Noturno')">Noturno</button>
+        <button class="btn" onclick="selecionarTurno('Matutino')">☀️ Matutino</button>
+        <button class="btn" onclick="selecionarTurno('Vespertino')">🌤️ Vespertino</button>
+        <button class="btn" onclick="selecionarTurno('Noturno')">🌙 Noturno</button>
       </div>
     </div>
-  
+
+    <!-- Lista de Cursos (Labs) -->
     <div class="section hidden" id="opcao-section-laboratorio">
-    <div class="headeDisplay">
-        <h2>Localize seu laboratório, por curso:</h2>
-        <button class="buttonReturn" onclick="voltar('turno')">Voltar</button>
+      <div class="headeDisplay">
+        <h2>Selecione o curso</h2>
+        <button class="buttonReturn" onclick="voltar('turno')">
+            <span class="return-icon">←</span> Voltar
+        </button>
+      </div>
+      <div class="search-wrapper">
+        <input type="text" id="filtro-input-laboratorio" placeholder="Buscar laboratório..." oninput="filtrarListaLaboratorio()">
+        <span class="search-icon">🔍</span>
+      </div>
+      <div id="lista-cursos-laboratorio"></div>
     </div>
-    <input type="text" id="filtro-input-laboratorio" placeholder="Filtre aqui por Laboratório" oninput="filtrarListaLaboratorio()">
-    <div id="lista-cursos-laboratorio"></div> <!-- 🔹 nome novo -->
-    </div>
-  
+
+    <!-- Detalhes do Laboratório -->
     <div class="section hidden" id="lista-section-laboratorio">
-    <div class="headeDisplay">
-        <h2>Localize seu laboratório, por curso:</h2>
-        <h2 id="lista-titulo-laboratorio"></h2>
-        <button class="buttonReturn" onclick="voltar('opcao-laboratorio')">Voltar</button>
-    </div>
-    <input type="text" id="filtro-detalhes-laboratorio" placeholder="Filtre aqui por Professor(a)/Disciplina" oninput="filtrarDetalhesLaboratorio()">
-    <ul id="lista-detalhes-laboratorio"></ul>
+      <div class="headeDisplay">
+        <h2 id="lista-titulo-laboratorio">Detalhes do laboratório</h2>
+        <button class="buttonReturn" onclick="voltar('opcao-laboratorio')">
+            <span class="return-icon">←</span> Voltar
+        </button>
+      </div>
+      <div class="search-wrapper">
+        <input type="text" id="filtro-detalhes-laboratorio" placeholder="Buscar professor ou disciplina..." oninput="filtrarDetalhesLaboratorio()">
+        <span class="search-icon">🔍</span>
+      </div>
+      <ul id="lista-detalhes-laboratorio"></ul>
     </div>
 
-  <!-- Fim da Seção de Laboratórios-->
+</div>
+<!-- Fim do container principal -->
 
-  <script src="scripts/app.js"></script>
+<!-- LGPD COOKIE BANNER -->
+<div id="cookie-banner" class="cookie-banner hidden">
+    <div class="cookie-content">
+        <p>Usamos armazenamento local para melhorar sua experiência, salvando suas preferências de tema e acelerando o carregamento dos horários. Ao continuar, você concorda com o uso dessas tecnologias.</p>
+        <button class="btn btn-cookie" onclick="aceitarCookies()">Entendi</button>
+    </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+    <p>Faculdade Anhanguera — Imperatriz, MA</p>
+</footer>
+
+<!-- BOTÃO DE ACESSIBILIDADE (Baixa Visão) -->
+<div id="acessibilidade-fab" class="a11y-fab" aria-label="Opções de acessibilidade" title="Acessibilidade">
+    <button class="a11y-fab-btn" id="btn-a11y-toggle" onclick="toggleA11yPanel()" aria-expanded="false" aria-controls="acessibilidade-painel">
+        <span class="a11y-icon" aria-hidden="true">♿</span>
+    </button>
+
+    <div id="acessibilidade-painel" class="a11y-painel" role="dialog" aria-label="Painel de Acessibilidade" hidden>
+        <div class="a11y-painel-header">
+            <span class="a11y-painel-titulo">👁️ Acessibilidade</span>
+            <button class="a11y-fechar" onclick="toggleA11yPanel()" aria-label="Fechar painel">✕</button>
+        </div>
+
+        <div class="a11y-grupo">
+            <span class="a11y-grupo-label">Tamanho do texto</span>
+            <div class="a11y-controles">
+                <button class="a11y-ctrl-btn" id="btn-fonte-menos" onclick="ajustarFonte(-1)" aria-label="Diminuir texto">A−</button>
+                <button class="a11y-ctrl-btn a11y-reset" onclick="resetarFonte()" aria-label="Tamanho padrão" title="Padrão">A</button>
+                <button class="a11y-ctrl-btn" id="btn-fonte-mais" onclick="ajustarFonte(1)" aria-label="Aumentar texto">A+</button>
+            </div>
+            <span class="a11y-nivel-label" id="a11y-nivel-label">Padrão</span>
+        </div>
+
+        <div class="a11y-grupo">
+            <span class="a11y-grupo-label">Alto contraste</span>
+            <button class="a11y-toggle-btn" id="btn-alto-contraste" onclick="toggleAltoContraste()" aria-pressed="false">
+                <span class="a11y-toggle-icon">◐</span> Ativar
+            </button>
+        </div>
+
+        <div class="a11y-grupo">
+            <span class="a11y-grupo-label">Espaçamento</span>
+            <button class="a11y-toggle-btn" id="btn-espacamento" onclick="toggleEspacamento()" aria-pressed="false">
+                <span class="a11y-toggle-icon">↕</span> Ativar
+            </button>
+        </div>
+
+        <div class="a11y-grupo">
+            <button class="a11y-ctrl-btn a11y-full-reset" onclick="resetarTudo()">↺ Redefinir tudo</button>
+        </div>
+    </div>
+</div>
+
+<script src="scripts/app.js"></script>
+<script src="scripts/acessibilidade.js"></script>
 
 </body>
 </html>

@@ -9,7 +9,7 @@ const FONTES = {
 // Defina qual fonte usar para cada tipo: FONTES.APPSCRIPT ou FONTES.SUPABASE
 const CONFIG_FONTES = {
     salas: FONTES.SUPABASE,        // Mapa de Salas: 'appscript' ou 'supabase'
-    laboratorios: FONTES.APPSCRIPT  // Mapa de Laboratórios: 'appscript' ou 'supabase'
+    laboratorios: FONTES.SUPABASE  // Mapa de Laboratórios: 'appscript' ou 'supabase'
 };
 
 // URLs das fontes de dados
@@ -23,12 +23,17 @@ const CACHE_TTL_MINUTOS = 2; // Tempo de vida do cache em minutos
 let dados = [];
 let dadosLaboratorio = [];
 
+
+
 // =================== Variáveis de Estado ===================
 
 let periodoSelecionado = '';
 let diaSelecionado = '';
 let diaLaboratorioSelecionado = '';
 let turnoLaboratorioSelecionado = '';
+let cursoSelecionado = '';
+let cursoLaboratorioSelecionado = '';
+let tipoMapaSelecionado = ''; // 'sala' ou 'laboratorio'
 
 // =================== Funções de Fetch ===================
 
@@ -73,7 +78,7 @@ function salvarNoCache(chave, dados) {
         dados: dados,
         timestamp: Date.now()
     };
-    
+
     if (USA_LOCAL_STORAGE) {
         try {
             localStorage.setItem(chave, JSON.stringify(entry));
@@ -93,7 +98,7 @@ function salvarNoCache(chave, dados) {
 function buscarDoCache(chave) {
     let entry = null;
     let fonte = '';
-    
+
     // Tenta localStorage primeiro
     if (USA_LOCAL_STORAGE) {
         try {
@@ -106,25 +111,25 @@ function buscarDoCache(chave) {
             // Ignora erro e tenta memória
         }
     }
-    
+
     // Se não encontrou no localStorage, tenta memória
     if (!entry && cacheMemoria.has(chave)) {
         entry = cacheMemoria.get(chave);
         fonte = 'memória';
     }
-    
+
     if (!entry) return null;
-    
+
     if (cacheValido(entry)) {
         const tempoRestante = Math.ceil((CACHE_TTL_MINUTOS * 60 * 1000 - (Date.now() - entry.timestamp)) / 1000);
         console.log(`✅ Cache hit [${fonte}]: ${chave} (expira em ${tempoRestante}s)`);
         return entry.dados;
     }
-    
+
     // Cache expirado - remove
     console.log(`⏰ Cache expirado: ${chave}`);
     if (USA_LOCAL_STORAGE) {
-        try { localStorage.removeItem(chave); } catch (e) {}
+        try { localStorage.removeItem(chave); } catch (e) { }
     }
     cacheMemoria.delete(chave);
     return null;
@@ -134,7 +139,7 @@ function buscarDoCache(chave) {
 function limparCache() {
     let countLocal = 0;
     let countMemoria = cacheMemoria.size;
-    
+
     // Limpa localStorage
     if (USA_LOCAL_STORAGE) {
         const keysToRemove = [];
@@ -147,11 +152,11 @@ function limparCache() {
         keysToRemove.forEach(key => localStorage.removeItem(key));
         countLocal = keysToRemove.length;
     }
-    
+
     // Limpa memória
     cacheMemoria.clear();
     cacheAppScript = null;
-    
+
     console.log(`🗑️ Cache limpo! (${countLocal} localStorage + ${countMemoria} memória)`);
 }
 
@@ -166,18 +171,18 @@ async function fetchDadosAppScript(tipo, filtros) {
         if (!response.ok) {
             throw new Error(`Erro na requisição: ${response.status}`);
         }
-        
+
         const data = await response.json();
         if (!data.data) {
             throw new Error("Dados não encontrados na resposta.");
         }
-        
+
         cacheAppScript = data.data;
     }
-    
+
     // Seleciona a fonte correta baseado no tipo
     let dadosFonte = tipo === 'salas' ? cacheAppScript["Dados"] : cacheAppScript["Dados Laboratório"];
-    
+
     // Filtra localmente
     if (dadosFonte && filtros) {
         dadosFonte = dadosFonte.filter(item => {
@@ -187,36 +192,59 @@ async function fetchDadosAppScript(tipo, filtros) {
             return match;
         });
     }
-    
+
     return dadosFonte || [];
 }
 
 async function fetchDadosSupabase(tipo, filtros) {
+    if (tipo === 'laboratorios') {
+        const url = new URL(`${SUPABASE_URL}/functions/v1/Cadastro`);
+        if (filtros.turno) {
+            url.searchParams.append('currentTurno', filtros.turno);
+        }
+        if (filtros.dia) {
+            url.searchParams.append('currentDay', filtros.dia);
+        }
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Erro na Edge Function Cadastro: ${response.status}`);
+        }
+
+        const resData = await response.json();
+        return Array.isArray(resData) ? resData : (resData.data || []);
+    }
+
     // Mapeamento dos tipos para nomes das tabelas no Supabase
     const TABELAS_SUPABASE = {
-        salas: 'horarios',              // Tabela de salas/horários
-        laboratorios: 'laboratorios'    // Tabela de laboratórios (criar no Supabase)
+        salas: 'horarios'              // Tabela de salas/horários
     };
-    
+
     // Colunas permitidas para cada tipo (apenas dados públicos)
     const COLUNAS_SUPABASE = {
-        salas: 'ID,bloco,curso,dia,disciplina,hora,periodo,professor,sala,turno',
-        laboratorios: 'ID,bloco,curso,dia,disciplina,hora,periodo,professor,laboratorio,turno,data'
+        salas: 'ID,bloco,curso,dia,disciplina,hora,periodo,professor,sala,turno'
     };
-    
+
     const tabela = TABELAS_SUPABASE[tipo];
     const colunas = COLUNAS_SUPABASE[tipo];
-    
+
     // Constrói a query com colunas específicas e filtros
     let url = `${SUPABASE_URL}/rest/v1/${tabela}?select=${colunas}`;
-    
+
     if (filtros.turno) {
         url += `&turno=eq.${encodeURIComponent(filtros.turno)}`;
     }
     if (filtros.dia) {
         url += `&dia=eq.${encodeURIComponent(filtros.dia)}`;
     }
-    
+
     const response = await fetch(url, {
         headers: {
             'apikey': SUPABASE_ANON_KEY,
@@ -224,11 +252,11 @@ async function fetchDadosSupabase(tipo, filtros) {
             'Content-Type': 'application/json'
         }
     });
-    
+
     if (!response.ok) {
         throw new Error(`Erro na requisição Supabase: ${response.status}`);
     }
-    
+
     return await response.json();
 }
 
@@ -237,21 +265,21 @@ async function fetchDados(tipo, filtros) {
         // Verifica se tem dados válidos no cache
         const chaveCache = gerarChaveCache(tipo, filtros);
         const dadosCache = buscarDoCache(chaveCache);
-        
+
         if (dadosCache) {
             // Retorna dados do cache sem fazer requisição
             return dadosCache;
         }
-        
+
         // Mostra o loading (apenas se não tiver cache)
         document.getElementById("loading").classList.remove("hidden");
         document.body.classList.remove("loaded");
 
         let resultado;
-        
+
         // Verifica qual fonte usar para este tipo específico
         const fonteAtual = CONFIG_FONTES[tipo] || FONTES.APPSCRIPT;
-        
+
         if (fonteAtual === FONTES.APPSCRIPT) {
             // AppScript
             resultado = await fetchDadosAppScript(tipo, filtros);
@@ -271,7 +299,11 @@ async function fetchDados(tipo, filtros) {
 
     } catch (error) {
         console.error("❌ Erro ao buscar dados:", error);
-        document.getElementById("loading").innerHTML = "<p style='color: white;'>Erro ao carregar os dados.</p>";
+        document.getElementById("loading").innerHTML = `
+            <div class="loading-content">
+                <div style="font-size: 40px; margin-bottom: 12px;">⚠️</div>
+                <p>Erro ao carregar os dados.</p>
+            </div>`;
         return [];
     }
 }
@@ -282,43 +314,94 @@ window.onload = () => {
     document.getElementById("loading").classList.add("hidden");
     document.body.classList.add("loaded");
     document.querySelector(".sectionCenter").style.display = "flex";
+
+    // Restaura tema salvo
+    restaurarTema();
+    
+    // Verifica aviso de cookies (LGPD)
+    verificarCookies();
 };
+
+// =================== Breadcrumb ===================
+
+function atualizarBreadcrumb(itens) {
+    const breadcrumb = document.getElementById('breadcrumb');
+    if (!itens || itens.length === 0) {
+        breadcrumb.classList.add('hidden');
+        return;
+    }
+
+    breadcrumb.classList.remove('hidden');
+    breadcrumb.innerHTML = '';
+
+    itens.forEach((item, index) => {
+        const span = document.createElement('span');
+        span.className = 'breadcrumb-item' + (index === itens.length - 1 ? ' active' : '');
+        span.textContent = item;
+        breadcrumb.appendChild(span);
+
+        if (index < itens.length - 1) {
+            const sep = document.createElement('span');
+            sep.className = 'breadcrumb-separator';
+            sep.textContent = '›';
+            breadcrumb.appendChild(sep);
+        }
+    });
+}
+
+// =================== Transição de Seção ===================
+
+function mostrarSecao(id) {
+    const section = document.getElementById(id);
+    section.classList.remove('hidden');
+    // Re-trigger animation
+    section.style.animation = 'none';
+    section.offsetHeight; // force reflow
+    section.style.animation = '';
+}
 
 // =================== Funções de Seleção ===================
 
 function selecionarTipoMapa(tipo) {
+    tipoMapaSelecionado = tipo;
     document.getElementById('tipo-mapa-section').classList.add('hidden');
-    
+
     if (tipo === 'sala') {
-        document.getElementById('periodo-section').classList.remove('hidden');
+        mostrarSecao('periodo-section');
+        atualizarBreadcrumb(['🏫 Salas', 'Turno']);
     } else {
-        document.getElementById('dia-laboratorio-section').classList.remove('hidden');
+        mostrarSecao('dia-laboratorio-section');
+        atualizarBreadcrumb(['🔬 Laboratórios', 'Dia']);
     }
 }
 
 function selecionarPeriodo(periodo) {
     periodoSelecionado = periodo;
     document.getElementById('periodo-section').classList.add('hidden');
-    document.getElementById('dia-section').classList.remove('hidden');
+    mostrarSecao('dia-section');
+    atualizarBreadcrumb(['🏫 Salas', periodo, 'Dia']);
 }
 
 function selecionarDia(dia) {
     diaSelecionado = dia;
     document.getElementById('dia-section').classList.add('hidden');
-    document.getElementById('opcao-section').classList.remove('hidden');
+    mostrarSecao('opcao-section');
+    atualizarBreadcrumb(['🏫 Salas', periodoSelecionado, dia, 'Curso']);
     carregarEMostrarCursos();
 }
 
 function selecionarDiaLaboratorio(dia_lab) {
     diaLaboratorioSelecionado = dia_lab;
     document.getElementById('dia-laboratorio-section').classList.add('hidden');
-    document.getElementById('turno-section').classList.remove('hidden');
+    mostrarSecao('turno-section');
+    atualizarBreadcrumb(['🔬 Labs', dia_lab, 'Turno']);
 }
 
 function selecionarTurno(turno_lab) {
     turnoLaboratorioSelecionado = turno_lab;
     document.getElementById('turno-section').classList.add('hidden');
-    document.getElementById('opcao-section-laboratorio').classList.remove('hidden');
+    mostrarSecao('opcao-section-laboratorio');
+    atualizarBreadcrumb(['🔬 Labs', diaLaboratorioSelecionado, turno_lab, 'Curso']);
     carregarEMostrarCursosLaboratorio();
 }
 
@@ -330,7 +413,7 @@ async function carregarEMostrarCursos() {
         turno: periodoSelecionado,
         dia: diaSelecionado
     });
-    
+
     mostrarCursos();
 }
 
@@ -342,7 +425,11 @@ function mostrarCursos() {
     const cursosFiltrados = dados.filter(d => d.turno === periodoSelecionado && d.dia === diaSelecionado);
 
     if (cursosFiltrados.length === 0) {
-        lista.innerHTML = "<p style='color: white'>Nenhum curso encontrado.</p>";
+        lista.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>Nenhum curso encontrado para este turno e dia.</p>
+            </div>`;
         return;
     }
 
@@ -357,10 +444,15 @@ function mostrarCursos() {
 }
 
 function mostrarProfessores(curso) {
+    cursoSelecionado = curso;
     document.getElementById('opcao-section').classList.add('hidden');
-    document.getElementById('lista-section').classList.remove('hidden');
+    mostrarSecao('lista-section');
+    atualizarBreadcrumb(['🏫 Salas', periodoSelecionado, diaSelecionado, curso]);
 
-    const professoresFiltrados = dados.filter(item => 
+    // Atualiza título
+    document.getElementById('lista-titulo').textContent = curso;
+
+    const professoresFiltrados = dados.filter(item =>
         item.curso === curso &&
         item.turno === periodoSelecionado &&
         item.dia === diaSelecionado
@@ -370,29 +462,50 @@ function mostrarProfessores(curso) {
     lista.innerHTML = '';
 
     if (professoresFiltrados.length === 0) {
-        lista.innerHTML = "<p style='color: white'>Nenhum professor encontrado.</p>";
+        lista.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>Nenhum professor encontrado.</p>
+            </div>`;
         return;
     }
 
     professoresFiltrados.forEach(item => {
         const li = document.createElement('li');
+        li.className = 'resultado-card';
 
         if (typeof item.sala === 'string' && item.sala.trim().toLowerCase() === 'aula cancelada') {
             li.classList.add('cancelado');
         }
 
         const professorDiv = document.createElement('div');
+        professorDiv.className = 'professor-nome';
         professorDiv.textContent = item.professor;
-        professorDiv.style.fontWeight = 'bold';
 
         const detalhesDiv = document.createElement('div');
-        detalhesDiv.className = "descricaoDiv";
-        detalhesDiv.innerHTML = `Disciplina: ${item.disciplina}<br>
-                                Período: ${item.periodo}<br>
-                                Bloco: ${item.bloco}<br>
-                                Sala: ${item.sala}<br>
-                                Hora: ${item.hora}`;
-        
+        detalhesDiv.className = 'descricaoDiv';
+        detalhesDiv.innerHTML = `
+            <div class="info-item info-full">
+                <span class="info-icon">📖</span>
+                <span><span class="info-label">Disciplina </span><span class="info-value">${item.disciplina}</span></span>
+            </div>
+            <div class="info-item">
+                <span class="info-icon">📍</span>
+                <span><span class="info-label">Sala </span><span class="info-value">${item.sala}</span></span>
+            </div>
+            <div class="info-item">
+                <span class="info-icon">🏢</span>
+                <span><span class="info-label">Bloco </span><span class="info-value">${item.bloco}</span></span>
+            </div>
+            <div class="info-item">
+                <span class="info-icon">🕐</span>
+                <span><span class="info-label">Hora </span><span class="info-value">${item.hora}</span></span>
+            </div>
+            <div class="info-item">
+                <span class="info-icon">📅</span>
+                <span><span class="info-label">Período </span><span class="info-value">${item.periodo}</span></span>
+            </div>`;
+
         li.appendChild(professorDiv);
         li.appendChild(detalhesDiv);
 
@@ -403,12 +516,12 @@ function mostrarProfessores(curso) {
 // =================== Exibição Laboratórios ===================
 
 async function carregarEMostrarCursosLaboratorio() {
-    // Faz o fetch com os filtros selecionados
+    // Faz o fetch com os filtros selecionados. A RLS do banco já cuida de omitir os dados ocultos!
     dadosLaboratorio = await fetchDados('laboratorios', {
         turno: turnoLaboratorioSelecionado,
         dia: diaLaboratorioSelecionado
     });
-    
+
     mostrarCursosLaboratorio();
 }
 
@@ -417,13 +530,17 @@ function mostrarCursosLaboratorio() {
     lista.innerHTML = '';
 
     // Dados já vêm filtrados do servidor
-    const cursosFiltrados = dadosLaboratorio.filter(lab => 
-        lab.dia === diaLaboratorioSelecionado && 
+    const cursosFiltrados = dadosLaboratorio.filter(lab =>
+        lab.dia === diaLaboratorioSelecionado &&
         lab.turno === turnoLaboratorioSelecionado
     );
 
     if (cursosFiltrados.length === 0) {
-        lista.innerHTML = "<p style='color: white'>Nenhum curso encontrado.</p>";
+        lista.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>Nenhum curso encontrado para este dia e turno.</p>
+            </div>`;
         return;
     }
 
@@ -438,44 +555,73 @@ function mostrarCursosLaboratorio() {
 }
 
 function mostrarLaboratorioPorCurso(curso) {
+    cursoLaboratorioSelecionado = curso;
     document.getElementById('opcao-section-laboratorio').classList.add('hidden');
-    document.getElementById('lista-section-laboratorio').classList.remove('hidden');
+    mostrarSecao('lista-section-laboratorio');
+    atualizarBreadcrumb(['🔬 Labs', diaLaboratorioSelecionado, turnoLaboratorioSelecionado, curso]);
+
+    // Atualiza título
+    document.getElementById('lista-titulo-laboratorio').textContent = curso;
 
     const lista = document.getElementById('lista-detalhes-laboratorio');
     lista.innerHTML = '';
 
-    const laboratoriosFiltrados = dadosLaboratorio.filter(lab => 
+    const laboratoriosFiltrados = dadosLaboratorio.filter(lab =>
         lab.curso === curso &&
         lab.dia === diaLaboratorioSelecionado &&
         lab.turno === turnoLaboratorioSelecionado
     );
 
     if (laboratoriosFiltrados.length === 0) {
-        lista.innerHTML = "<p style='color: white'>Nenhum laboratório encontrado.</p>";
+        lista.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>Nenhum laboratório encontrado.</p>
+            </div>`;
         return;
     }
 
     laboratoriosFiltrados.forEach(item => {
         const li = document.createElement('li');
+        li.className = 'resultado-card';
 
         if (item.laboratorio.trim().toLowerCase() === 'aula cancelada') {
             li.classList.add('cancelado');
         }
 
         const professorDiv = document.createElement('div');
+        professorDiv.className = 'professor-nome';
         professorDiv.textContent = item.professor;
-        professorDiv.style.fontWeight = 'bold';
 
         const dataFormatada = new Date(item.data).toLocaleDateString("pt-BR");
 
         const detalhesDiv = document.createElement('div');
-        detalhesDiv.className = "descricaoDiv";
-        detalhesDiv.innerHTML = `Disciplina: ${item.disciplina} <br>
-                                Localização: ${item.laboratorio} <br>
-                                Bloco: ${item.bloco} <br>
-                                Período: ${item.periodo} <br>
-                                Data: ${dataFormatada} <br>
-                                Hora: ${item.hora}`;
+        detalhesDiv.className = 'descricaoDiv';
+        detalhesDiv.innerHTML = `
+            <div class="info-item info-full">
+                <span class="info-icon">📖</span>
+                <span><span class="info-label">Disciplina </span><span class="info-value">${item.disciplina}</span></span>
+            </div>
+            <div class="info-item">
+                <span class="info-icon">🧪</span>
+                <span><span class="info-label">Lab </span><span class="info-value">${item.laboratorio}</span></span>
+            </div>
+            <div class="info-item">
+                <span class="info-icon">🏢</span>
+                <span><span class="info-label">Bloco </span><span class="info-value">${item.bloco}</span></span>
+            </div>
+            <div class="info-item">
+                <span class="info-icon">🕐</span>
+                <span><span class="info-label">Hora </span><span class="info-value">${item.hora}</span></span>
+            </div>
+            <div class="info-item">
+                <span class="info-icon">📅</span>
+                <span><span class="info-label">Período </span><span class="info-value">${item.periodo}</span></span>
+            </div>
+            <div class="info-item">
+                <span class="info-icon">📆</span>
+                <span><span class="info-label">Data </span><span class="info-value">${dataFormatada}</span></span>
+            </div>`;
 
         li.appendChild(professorDiv);
         li.appendChild(detalhesDiv);
@@ -498,43 +644,50 @@ function voltar(passo) {
             document.getElementById('opcao-section-laboratorio').classList.add('hidden');
             document.getElementById('lista-section').classList.add('hidden');
             document.getElementById('lista-section-laboratorio').classList.add('hidden');
-            document.getElementById('tipo-mapa-section').classList.remove('hidden');
+            mostrarSecao('tipo-mapa-section');
+            atualizarBreadcrumb([]);
             break;
 
         case 'periodo':
             document.getElementById('dia-section').classList.add('hidden');
             document.getElementById('opcao-section').classList.add('hidden');
             document.getElementById('lista-section').classList.add('hidden');
-            document.getElementById('periodo-section').classList.remove('hidden');
+            mostrarSecao('periodo-section');
+            atualizarBreadcrumb(['🏫 Salas', 'Turno']);
             break;
 
         case 'dia':
             document.getElementById('opcao-section').classList.add('hidden');
             document.getElementById('lista-section').classList.add('hidden');
-            document.getElementById('dia-section').classList.remove('hidden');
+            mostrarSecao('dia-section');
+            atualizarBreadcrumb(['🏫 Salas', periodoSelecionado, 'Dia']);
             break;
 
         case 'opcao':
             document.getElementById('lista-section').classList.add('hidden');
-            document.getElementById('opcao-section').classList.remove('hidden');
+            mostrarSecao('opcao-section');
+            atualizarBreadcrumb(['🏫 Salas', periodoSelecionado, diaSelecionado, 'Curso']);
             break;
 
         case 'dia-laboratorio':
             document.getElementById('turno-section').classList.add('hidden');
             document.getElementById('opcao-section-laboratorio').classList.add('hidden');
             document.getElementById('lista-section-laboratorio').classList.add('hidden');
-            document.getElementById('dia-laboratorio-section').classList.remove('hidden');
+            mostrarSecao('dia-laboratorio-section');
+            atualizarBreadcrumb(['🔬 Labs', 'Dia']);
             break;
 
-        case 'turno': 
+        case 'turno':
             document.getElementById('opcao-section-laboratorio').classList.add('hidden');
             document.getElementById('lista-section-laboratorio').classList.add('hidden');
-            document.getElementById('turno-section').classList.remove('hidden');
+            mostrarSecao('turno-section');
+            atualizarBreadcrumb(['🔬 Labs', diaLaboratorioSelecionado, 'Turno']);
             break;
 
-        case 'opcao-laboratorio': 
+        case 'opcao-laboratorio':
             document.getElementById('lista-section-laboratorio').classList.add('hidden');
-            document.getElementById('opcao-section-laboratorio').classList.remove('hidden');
+            mostrarSecao('opcao-section-laboratorio');
+            atualizarBreadcrumb(['🔬 Labs', diaLaboratorioSelecionado, turnoLaboratorioSelecionado, 'Curso']);
             break;
     }
 }
@@ -554,7 +707,7 @@ function filtrarLista() {
 
 function filtrarCurso() {
     const filtro = document.getElementById('filtro-input-curso').value.toLowerCase();
-    const lista = document.getElementById('lista-professores');
+    const lista = document.getElementById('lista-cursos');
     const itens = lista.getElementsByTagName('li');
 
     for (let i = 0; i < itens.length; i++) {
@@ -576,7 +729,7 @@ function filtrarDetalhesLaboratorio() {
 
 function filtrarListaLaboratorio() {
     const filtro = document.getElementById('filtro-input-laboratorio').value.toLowerCase();
-    const lista = document.getElementById('lista-opcoes-laboratorio');
+    const lista = document.getElementById('lista-cursos-laboratorio');
     const itens = lista.getElementsByTagName('li');
 
     for (let i = 0; i < itens.length; i++) {
@@ -589,13 +742,41 @@ function filtrarListaLaboratorio() {
 
 function toggleTheme() {
     document.body.classList.toggle('light-mode');
+    const isLight = document.body.classList.contains('light-mode');
 
+    // Atualiza logo
     const logoNavbar = document.getElementById('logo-navbar');
-    if (document.body.classList.contains('light-mode')) {
+    if (isLight) {
         logoNavbar.src = 'images/logo-anhanguera-horizontal.png';
     } else {
         logoNavbar.src = 'images/logo-anhanguera-horizontal-branca.png';
     }
+
+    // Atualiza ícone do botão
+    const btnTheme = document.getElementById('btn-theme');
+    btnTheme.textContent = isLight ? '☀️' : '🌙';
+
+    // Salva preferência
+    if (USA_LOCAL_STORAGE) {
+        try {
+            localStorage.setItem('anhanguera_tema', isLight ? 'light' : 'dark');
+        } catch (e) { }
+    }
+}
+
+function restaurarTema() {
+    if (!USA_LOCAL_STORAGE) return;
+
+    try {
+        const temaSalvo = localStorage.getItem('anhanguera_tema');
+        if (temaSalvo === 'light') {
+            document.body.classList.add('light-mode');
+            const logoNavbar = document.getElementById('logo-navbar');
+            if (logoNavbar) logoNavbar.src = 'images/logo-anhanguera-horizontal.png';
+            const btnTheme = document.getElementById('btn-theme');
+            if (btnTheme) btnTheme.textContent = '☀️';
+        }
+    } catch (e) { }
 }
 
 // Garante que a logo esteja certa ao recarregar a página
@@ -621,3 +802,32 @@ window.addEventListener('DOMContentLoaded', () => {
         console.warn('⚠️ Elemento com id="logo-principal" não encontrado.');
     }
 });
+
+// =================== LGPD / Cookies ===================
+
+function verificarCookies() {
+    if (USA_LOCAL_STORAGE) {
+        const aceitou = localStorage.getItem('anhanguera_cookies_aceitos');
+        if (!aceitou) {
+            // Pequeno delay para a animação ficar mais fluida ao carregar a página
+            setTimeout(() => {
+                document.getElementById('cookie-banner').classList.remove('hidden');
+            }, 1000);
+        }
+    }
+}
+
+function aceitarCookies() {
+    if (USA_LOCAL_STORAGE) {
+        localStorage.setItem('anhanguera_cookies_aceitos', 'true');
+    }
+    const banner = document.getElementById('cookie-banner');
+    
+    // Animação de saída
+    banner.style.animation = 'slideUpCookie 0.4s reverse forwards';
+    
+    setTimeout(() => {
+        banner.classList.add('hidden');
+        banner.style.animation = ''; // Limpa a animação para futuras utilizações
+    }, 400);
+}
