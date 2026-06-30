@@ -197,39 +197,16 @@ async function fetchDadosAppScript(tipo, filtros) {
 }
 
 async function fetchDadosSupabase(tipo, filtros) {
-    if (tipo === 'laboratorios') {
-        const url = new URL(`${SUPABASE_URL}/functions/v1/Cadastro`);
-        if (filtros.turno) {
-            url.searchParams.append('currentTurno', filtros.turno);
-        }
-        if (filtros.dia) {
-            url.searchParams.append('currentDay', filtros.dia);
-        }
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`Erro na Edge Function Cadastro: ${response.status}`);
-        }
-
-        const resData = await response.json();
-        return Array.isArray(resData) ? resData : (resData.data || []);
-    }
-
     // Mapeamento dos tipos para nomes das tabelas no Supabase
     const TABELAS_SUPABASE = {
-        salas: 'horarios'              // Tabela de salas/horários
+        salas: 'horarios',              // Tabela de salas/horários
+        laboratorios: 'horarios_lab'    // Tabela de laboratórios
     };
 
     // Colunas permitidas para cada tipo (apenas dados públicos)
     const COLUNAS_SUPABASE = {
-        salas: 'ID,bloco,curso,dia,disciplina,hora,periodo,professor,sala,turno'
+        salas: 'ID,bloco,curso,dia,disciplina,hora,periodo,professor,sala,turno',
+        laboratorios: 'ID,bloco,curso,dia,disciplina,hora,periodo,professor,laboratorio,turno,data'
     };
 
     const tabela = TABELAS_SUPABASE[tipo];
@@ -317,7 +294,7 @@ window.onload = () => {
 
     // Restaura tema salvo
     restaurarTema();
-    
+
     // Verifica aviso de cookies (LGPD)
     verificarCookies();
 };
@@ -823,10 +800,10 @@ function aceitarCookies() {
         localStorage.setItem('anhanguera_cookies_aceitos', 'true');
     }
     const banner = document.getElementById('cookie-banner');
-    
+
     // Animação de saída
     banner.style.animation = 'slideUpCookie 0.4s reverse forwards';
-    
+
     setTimeout(() => {
         banner.classList.add('hidden');
         banner.style.animation = ''; // Limpa a animação para futuras utilizações
